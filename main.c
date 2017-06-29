@@ -161,7 +161,7 @@ int main(void)
             clock_string[8] = '\0';
             ssd1306_clear_screen(0x00);
             ssd1306_display_string(32-strlen(ip_string), 0, ip_string, FONT_1608, NORMAL);
-            ssd1306_display_string(0, 24, clock_string, FONT_1612, NORMAL);
+            ssd1306_display_string(0, 16, clock_string, FONT_3216, NORMAL);
             ssd1306_refresh_gram();
             usleep(100000);
         }

@@ -230,48 +230,53 @@ void ssd1306_fill_screen(unsigned char chXpos1, unsigned char chYpos1, unsigned 
   * @param  chMode
   * @retval 
 **/
-void ssd1306_display_char(unsigned char chXpos, unsigned char chYpos, unsigned char chChr, unsigned char chSize, unsigned char chMode)
+void ssd1306_display_char(unsigned char chXpos, unsigned char chYpos, unsigned char chChr, unsigned char chFontIndex, unsigned char chMode)
 {      	
 	unsigned char i, j;
-	unsigned char chTemp, chSizeTemp, chYpos0 = chYpos;
-	
-    switch (chSize) {
-        case FONT_1612:
-            chSizeTemp = 16;
-            break;
-        case FONT_3216:
-            chSizeTemp = 32;
-            break;
-        default:
-            chSizeTemp = chSize;
-            break;
-    }
+	unsigned char chTemp, chYpos0 = chYpos;
 			   
-    for (i = 0; i < chSize; i ++) {   
-		if (chSize == FONT_1206) {
-			if (chMode) {
-				chTemp = c_chFont1206[chChr-' '][i];
-			} else {
-				chTemp = ~c_chFont1206[chChr-' '][i];
-			}
-		} else if (chSize == FONT_1608) {
-			if (chMode) {
-				chTemp = c_chFont1608[chChr-' '][i];
-			} else {
-				chTemp = ~c_chFont1608[chChr-' '][i];
-			}
-        } else if (chSize == FONT_1612) {
-            if (chMode) {
-                chTemp = c_chFont1612[chChr-'0'][i];
-            } else {
-                chTemp = ~c_chFont1612[chChr-'0'][i];
-            }
-		} else if (chSize == FONT_3216) {
-            if (chMode) {
-                chTemp = c_chFont3216[chChr-'0'][i];
-            } else {
-                chTemp = ~c_chFont3216[chChr-'0'][i];
-            }
+    for (i = 0; i < fonts_width[chFontIndex] * ((fonts_height[chFontIndex] + 7) / 8); i ++) {
+        if (chMode) {
+            chTemp = 0x00;
+        } else {
+            chTemp = 0xff;
+        }
+
+        switch (chFontIndex) {
+            case FONT_1206:
+                if (chMode) {
+                    chTemp = c_chFont1206[chChr-' '][i];
+                } else {
+                    chTemp = ~c_chFont1206[chChr-' '][i];
+                }
+                break;
+            case FONT_1608:
+                if (chMode) {
+                    chTemp = c_chFont1608[chChr-' '][i];
+                } else {
+                    chTemp = ~c_chFont1608[chChr-' '][i];
+                }
+                break;
+            case FONT_1616:
+                if (chChr - '0' <= 10) {
+                    if (chMode) {
+                        chTemp = c_chFont1616[chChr-'0'][i];
+                    } else {
+                        chTemp = ~c_chFont1616[chChr-'0'][i];
+                    }
+                }
+                break;
+            case FONT_3216:
+                if (chChr - '0' <= 10) {
+                    if (chMode) {
+                        chTemp = c_chFont3216[chChr-'0'][i];
+                    } else {
+                        chTemp = ~c_chFont3216[chChr-'0'][i];
+                    }
+                }
+                break;
+            default:
+                break;
         }
         
         for (j = 0; j < 8; j ++) {
@@ -283,7 +288,7 @@ void ssd1306_display_char(unsigned char chXpos, unsigned char chYpos, unsigned c
 		    chTemp <<= 1;
 		    chYpos ++;
             
-		    if ((chYpos - chYpos0) == chSizeTemp) {
+		    if ((chYpos - chYpos0) == fonts_height[chFontIndex]) {
 			    chYpos = chYpos0;
 			    chXpos ++;
 			    break;
@@ -292,29 +297,29 @@ void ssd1306_display_char(unsigned char chXpos, unsigned char chYpos, unsigned c
 
     } 
 }
-static unsigned long int_pow(unsigned char m, unsigned char n)
+static unsigned long _pow(unsigned char m, unsigned char n)
 {
 	unsigned long result = 1;
 	while(n --) result *= m;    
 	return result;
 }	
 
-void ssd1306_display_num(unsigned char chXpos, unsigned char chYpos, unsigned long chNum, unsigned char chLen, unsigned char chSize)
+void ssd1306_display_num(unsigned char chXpos, unsigned char chYpos, unsigned long chNum, unsigned char chLen, unsigned char chFontIndex, unsigned char chMode)
 {         	
 	unsigned char i;
 	unsigned char chTemp, chShow = 0;
 	
 	for(i = 0; i < chLen; i ++) {
-		chTemp = (chNum / int_pow(10, chLen - i - 1)) % 10;
+		chTemp = (chNum / _pow(10, chLen - i - 1)) % 10;
 		if(chShow == 0 && i < (chLen - 1)) {
 			if(chTemp == 0) {
-				ssd1306_display_char(chXpos + (chSize / 2) * i, chYpos, ' ', chSize, 1);
+				ssd1306_display_char(chXpos + fonts_width[chFontIndex] * i, chYpos, ' ', chFontIndex, 1);
 				continue;
 			} else {
 				chShow = 1;
 			}	 
 		}
-	 	ssd1306_display_char(chXpos + (chSize / 2) * i, chYpos, chTemp + '0', chSize, 1); 
+	 	ssd1306_display_char(chXpos + fonts_width[chFontIndex] * i, chYpos, chTemp + '0', chFontIndex, chMode);
 	}
 } 
 
@@ -327,64 +332,22 @@ void ssd1306_display_num(unsigned char chXpos, unsigned char chYpos, unsigned lo
   *         
   * @retval  None
 **/
-void ssd1306_display_string(unsigned char chXpos, unsigned char chYpos, const char *pchString, unsigned char chSize, unsigned char chMode)
+void ssd1306_display_string(unsigned char chXpos, unsigned char chYpos, const char *pchString, unsigned char chFontIndex, unsigned char chMode)
 {
     while (*pchString != '\0') {       
-        if (chXpos > (SSD1306_WIDTH - chSize / 2)) {
+        if (chXpos > (SSD1306_WIDTH - fonts_width[chFontIndex])) {
 			chXpos = 0;
-			chYpos += chSize;
-			if (chYpos > (SSD1306_HEIGHT - chSize)) {
+			chYpos += fonts_height[chFontIndex];
+			if (chYpos > (SSD1306_HEIGHT - fonts_height[chFontIndex])) {
 				chYpos = chXpos = 0;
 				ssd1306_clear_screen(0x00);
 			}
 		}
 		
-        ssd1306_display_char(chXpos, chYpos, *pchString, chSize, chMode);
-        chXpos += chSize / 2;
-        pchString ++;
+        ssd1306_display_char(chXpos, chYpos, *pchString, chFontIndex, chMode);
+        chXpos += fonts_width[chFontIndex];
+        pchString++;
     }
-}
-
-void ssd1306_draw_1612char(unsigned char chXpos, unsigned char chYpos, unsigned char chChar)
-{
-	unsigned char i, j;
-	unsigned char chTemp = 0, chYpos0 = chYpos, chMode = 0;
-
-	for (i = 0; i < 32; i ++) {
-		chTemp = c_chFont1612[chChar - 0x30][i];
-		for (j = 0; j < 8; j ++) {
-			chMode = chTemp & 0x80? 1 : 0; 
-			ssd1306_draw_point(chXpos, chYpos, chMode);
-			chTemp <<= 1;
-			chYpos ++;
-			if ((chYpos - chYpos0) == 16) {
-				chYpos = chYpos0;
-				chXpos ++;
-				break;
-			}
-		}
-	}
-}
-
-void ssd1306_draw_3216char(unsigned char chXpos, unsigned char chYpos, unsigned char chChar)
-{
-	unsigned char i, j;
-	unsigned char chTemp = 0, chYpos0 = chYpos, chMode = 0;
-
-	for (i = 0; i < 64; i ++) {
-		chTemp = c_chFont3216[chChar - 0x30][i];
-		for (j = 0; j < 8; j ++) {
-			chMode = chTemp & 0x80? 1 : 0; 
-			ssd1306_draw_point(chXpos, chYpos, chMode);
-			chTemp <<= 1;
-			chYpos ++;
-			if ((chYpos - chYpos0) == 32) {
-				chYpos = chYpos0;
-				chXpos ++;
-				break;
-			}
-		}
-	}
 }
 
 void ssd1306_draw_bitmap(unsigned char chXpos, unsigned char chYpos, const unsigned char *pchBmp, unsigned char chWidth, unsigned char chHeight)
